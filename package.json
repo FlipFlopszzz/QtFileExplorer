@@ -1,0 +1,131 @@
+{
+  "name": "qtfileexplorer",
+  "displayName": "Qt File Explorer",
+  "description": "A simple file explorer extension for Qt project",
+  "version": "0.0.1",
+  "publisher": "flipFlops",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "Qt",
+    "Qml",
+    "file",
+    "explorer",
+    "tree"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "configuration": [
+      {
+        "title": "Qt File Explorer Settings",
+        "properties": {
+          "qtFileExplorer.cmakeBuildDirectory": {
+            "type": "string",
+            "default": "cmake.buildDirectory",
+            "description": ""
+          }
+        }
+      }
+    ],
+    "commands": [
+      {
+        "command": "qtfileexplorer.deleteFile",
+        "title": "Delete File"
+      },
+      {
+        "command": "qtfileexplorer.newFile",
+        "title": "New File",
+        "icon":"$(file-add)"
+      },
+      {
+        "command": "qtfileexplorer.revealFileInOS",
+        "title": "Reveal File in OS"
+      },
+      {
+        "command": "qtfileexplorer.renameFile",
+        "title": "Rename File"
+      },
+      {
+        "command": "qtfileexplorer.openQrcFile",
+        "title": "Open .qrc File"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "qtfileexplorer.explorer",
+          "name": "Qt File Explorer"
+        }
+      ]
+    },
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "qtfileexplorer.deleteFile",
+          "when": "view == qtfileexplorer.explorer",
+          "group": "navigation"
+        },
+        {
+          "command": "qtfileexplorer.newFile",
+          "when": "view == qtfileexplorer.explorer",
+          "group": "navigation"
+        },
+        {
+          "command": "qtfileexplorer.revealFileInOS",
+          "when": "view == qtfileexplorer.explorer",
+          "group": "navigation"
+        },
+        {
+          "command": "qtfileexplorer.renameFile",
+          "when": "view == qtfileexplorer.explorer",
+          "group": "navigation"
+        },
+        {
+          "command": "qtfileexplorer.openQrcFile",
+          "when": "view == qtfileexplorer.explorer && viewItem == qrcFile",
+          "group": "navigation"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "qtfileexplorer.newFile",
+          "when": "view == qtfileexplorer.explorer",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.9",
+    "@types/node": "20.x",
+    "@types/vscode": "^1.95.0",
+    "@typescript-eslint/eslint-plugin": "^8.10.0",
+    "@typescript-eslint/parser": "^8.7.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "eslint": "^9.13.0",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.6.3",
+    "webpack": "^5.95.0",
+    "webpack-cli": "^5.1.4"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^4.5.1"
+  }
+}
