@@ -1,0 +1,30 @@
+{
+  "QRC File Template": {
+    "prefix": "qrc-template",
+    "body": [
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+      "<RCC>",
+      "    <qresource prefix=\"/${1:prefix}\">",
+      "        ${2:<!-- Add files here -->}",
+      "    </qresource>",
+      "</RCC>"
+    ],
+    "description": "Qt Resource File Template"
+  },
+  "Add File": {
+    "prefix": "qrc-file",
+    "body": [
+      "<file>${1}</file>"
+    ],
+    "description": "Add a file to the QRC resource"
+  },
+  "Add Prefix": {
+    "prefix": "qrc-prefix",
+    "body": [
+      "<qresource prefix=\"/${1:prefix}\">",
+      "    ${2:<!-- Add files here -->}",
+      "</qresource>"
+    ],
+    "description": "Add a new resource prefix"
+  }
+}

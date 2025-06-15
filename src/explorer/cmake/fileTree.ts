@@ -1,11 +1,9 @@
 import * as vscode from 'vscode';
-import * as fs from 'fs';
 import * as path from 'path';
-import { parseQrcContent } from '../common/qrcParser';
-import { CMakeCodeModelResult, CMakeConfiguration, CMakeDirectory, CMakeProject, CMakeTarget, SourceGroup, SourceItem, TargetJsonResult } from "./interfaces"
-import { getCmakeApiReplyDirectory, findJsonFileByPrefix, parseCodeModelJson, parseTargetJson, createTreeItemForTargetJson } from './parser';
-import { FileTreeItem } from '../common/fileTreeItem';
+import { getCmakeApiReplyDirectory, parseCodeModelJson, createTreeItemForTargetJson, getBaseName } from './parser';
+import { FileTreeItem, createFileTreeItem } from '../common/fileTreeItem';
 import { registerTreeMenuCommands } from '../common/treeMenu';
+import { treeView } from '../../extension';
 
 // 自定义树数据提供者类，实现 vscode.TreeDataProvider 接口
 export class CMakeFileTreeDataProvider implements vscode.TreeDataProvider<FileTreeItem> {
@@ -13,7 +11,6 @@ export class CMakeFileTreeDataProvider implements vscode.TreeDataProvider<FileTr
   readonly onDidChangeTreeData: vscode.Event<FileTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
   private watcher: vscode.FileSystemWatcher | undefined;
 
-  private replyDirectory: string = ''
   private rootSourceDir: string = ''
   private rootBuildDir: string = ''
 
@@ -29,27 +26,24 @@ export class CMakeFileTreeDataProvider implements vscode.TreeDataProvider<FileTr
     return element;
   }
 
-  private getRootItems(): FileTreeItem[] | null {
+  private getRootItems(): FileTreeItem[] | undefined {
     const replyDirectory = getCmakeApiReplyDirectory()
-    if (!replyDirectory) return null
-    this.replyDirectory = replyDirectory
+    if (!replyDirectory) return
     const codemodelResult = parseCodeModelJson(replyDirectory)
-    if (!codemodelResult) return null
-    // console.log(codemodelResult)
+    if (!codemodelResult) return
     const config = codemodelResult.configurations[0]
     //根目录(.)
     this.rootSourceDir = codemodelResult.paths.source
     this.rootBuildDir = codemodelResult.paths.build
+    const buildType = config.name
     const targets = config.targets;
-    console.log(targets)
+    // console.log(targets)
     const rootItems: FileTreeItem[] = []
     let currentIsRoot: boolean = false
 
-    targets.forEach((target, index) => {
-      // console.log(target.jsonFile)
+    targets.forEach(target => {
       const createResult = createTreeItemForTargetJson(target.jsonFile, this.rootSourceDir, this.rootBuildDir)
-      if (!createResult) return null
-      //这里先不对paths进行判断了
+      if (!createResult) return
       const [dirItem, isRoot] = createResult
       if (isRoot) {
         //这里后边再细致处理了
@@ -65,14 +59,14 @@ export class CMakeFileTreeDataProvider implements vscode.TreeDataProvider<FileTr
     if (!currentIsRoot) {
       //根目录cmakelists
       const rootCmakeListsAbsPath = path.resolve(this.rootSourceDir, 'CMakeLists.txt')
-      const rootCmakeListsItem = new FileTreeItem(
+      const rootCmakeListsItem = createFileTreeItem(
         'CMakeLists.txt',
         vscode.TreeItemCollapsibleState.None,
         rootCmakeListsAbsPath
       )
-      rootItems.unshift(rootCmakeListsItem)
+      rootCmakeListsItem && rootItems.unshift(rootCmakeListsItem)
     }
-    // console.log(rootItems)
+    treeView.title = getBaseName(this.rootSourceDir) + '<' + buildType + '>'
     return rootItems
   }
 

@@ -20,6 +20,12 @@
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
+    "snippets": [
+      {
+        "language": "qrc",
+        "path": "./src/snippets/qrc.json"
+      }
+    ],
     "configuration": [
       {
         "title": "Qt File Explorer Settings",
@@ -27,7 +33,7 @@
           "qtFileExplorer.cmakeBuildDirectory": {
             "type": "string",
             "default": "cmake.buildDirectory",
-            "description": ""
+            "description": "%cmake.buildDirectory.description%"
           }
         }
       }
@@ -35,24 +41,24 @@
     "commands": [
       {
         "command": "qtfileexplorer.deleteFile",
-        "title": "Delete File"
+        "title": "%qtfileexplorer.deleteFile.title%"
       },
       {
         "command": "qtfileexplorer.newFile",
-        "title": "New File",
+        "title": "%qtfileexplorer.newFile.title%",
         "icon":"$(file-add)"
       },
       {
         "command": "qtfileexplorer.revealFileInOS",
-        "title": "Reveal File in OS"
+        "title": "%qtfileexplorer.revealFileInOS.title%"
       },
       {
         "command": "qtfileexplorer.renameFile",
-        "title": "Rename File"
+        "title": "%qtfileexplorer.renameFile.title%"
       },
       {
         "command": "qtfileexplorer.openQrcFile",
-        "title": "Open .qrc File"
+        "title": "%qtfileexplorer.openQrcFile.title%"
       }
     ],
     "views": {

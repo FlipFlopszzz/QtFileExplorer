@@ -4,10 +4,16 @@ import * as path from 'path';
 import { FileTreeItem } from './fileTreeItem';
 
 export function registerTreeMenuCommands(provider: any) {
+  //打开qrc文件
+  vscode.commands.registerCommand('qtfileexplorer.openQrcFile', (treeItem: FileTreeItem) => {
+    if (treeItem.resourceUri && treeItem.contextValue === 'qrcFile') {
+      vscode.commands.executeCommand('vscode.open', treeItem.resourceUri);
+    }
+  });
   // 在文件资源管理器中显示
   vscode.commands.registerCommand('qtfileexplorer.revealFileInOS', (treeItem: FileTreeItem) => {
-    if (treeItem.filePath) {
-      vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(treeItem.filePath));
+    if (treeItem.resourceUri) {
+      vscode.commands.executeCommand('revealFileInOS', treeItem.resourceUri);
     }
   });
   // 重命名
@@ -95,8 +101,8 @@ export function registerTreeMenuCommands(provider: any) {
   }
 
   vscode.commands.registerCommand('qtfileexplorer.deleteFile', async (treeItem: FileTreeItem) => {
-    if (treeItem.filePath) {
-      const uri = vscode.Uri.file(treeItem.filePath);
+    if (treeItem.resourceUri) {
+      const uri = treeItem.resourceUri
       try {
         await vscode.workspace.fs.delete(uri, { useTrash: true });
       } catch (err) {
@@ -218,9 +224,3 @@ function genHeaderContent(baseName: string) {
 function genCppContent(baseName: string) {
   return `#include "${baseName}.h"\n\n`;
 }
-
-/*1.删除
-  2.重命名（h+cpp）
-  3.文件资源管理器中显示
-  4.新建文件(h+cpp)
-*/

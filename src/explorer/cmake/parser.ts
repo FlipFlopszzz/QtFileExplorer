@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 import { CMakeCodeModelResult, CMakeConfiguration, CMakeDirectory, CMakeProject, CMakeTarget, SourceGroup, SourceItem, TargetJsonResult } from "./interfaces"
-import { FileTreeItem } from '../common/fileTreeItem';
+import { createFileTreeItem, FileTreeItem } from '../common/fileTreeItem';
 import { parseQrcContent } from '../common/qrcParser';
 // 错误消息常量
 const ERROR_MESSAGES = {
@@ -85,9 +85,9 @@ function resolveVSCodeVariables(input: string): string {
  * @param baseDir 基础目录（用于相对路径）
  * @returns 规范化后的绝对路径或null
  */
-function resolveAndNormalizePath(pathInput: string, baseDir?: string): string | null {
+function resolveAndNormalizePath(pathInput: string, baseDir?: string): string | undefined {
   if (!pathInput || typeof pathInput !== 'string') {
-    return null;
+    return;
   }
 
   // 解析VSCode变量
@@ -95,7 +95,7 @@ function resolveAndNormalizePath(pathInput: string, baseDir?: string): string | 
 
   // 检查路径是否有效
   if (!resolvedPath.trim()) {
-    return null;
+    return;
   }
 
   // 转换为绝对路径
@@ -108,7 +108,7 @@ function resolveAndNormalizePath(pathInput: string, baseDir?: string): string | 
       (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '');
 
     if (!rootDir) {
-      return null;
+      return;
     }
 
     absolutePath = path.resolve(rootDir, resolvedPath);
@@ -134,7 +134,7 @@ function directoryExists(path: string): boolean {
  * 获取CMake构建目录的绝对路径
  * @returns 构建目录的绝对路径或null
  */
-export function getCMakeBuildDirectory(): string | null {
+function getCMakeBuildDirectory(): string | undefined {
   // 读取扩展配置
   const extensionConfig = vscode.workspace.getConfiguration('qtFileExplorer');
   const buildDirSetting = extensionConfig.get<string>('cmakeBuildDirectory');
@@ -147,7 +147,7 @@ export function getCMakeBuildDirectory(): string | null {
 
     if (!cmakeBuildDir) {
       // console.warn(ERROR_MESSAGES.NO_BUILD_DIR);
-      return null;
+      return;
     }
 
     return resolveAndNormalizePath(cmakeBuildDir);
@@ -161,12 +161,12 @@ export function getCMakeBuildDirectory(): string | null {
  * 获取CMake API reply目录的绝对路径
  * @returns API reply目录的绝对路径或null
  */
-export function getCmakeApiReplyDirectory(): string | null {
+function getCmakeApiReplyDirectory(): string | undefined {
   const buildDir = getCMakeBuildDirectory();
 
   if (!buildDir) {
     vscode.window.showErrorMessage(ERROR_MESSAGES.NO_BUILD_DIR);
-    return null;
+    return;
   }
 
   // 拼接路径
@@ -175,7 +175,7 @@ export function getCmakeApiReplyDirectory(): string | null {
   // 可选：检查目录是否存在
   if (!directoryExists(apiReplyPath)) {
     vscode.window.showErrorMessage(`CMake API reply目录不存在: ${apiReplyPath}`);
-    return null;
+    return;
   }
 
   return apiReplyPath;
@@ -187,11 +187,11 @@ export function getCmakeApiReplyDirectory(): string | null {
  * @param prefix 文件名前缀
  * @returns 匹配的JSON文件的绝对路径，未找到时返回null
  */
-export function findJsonFileByPrefix(directory: string, prefix: string): string | null {
+function findJsonFileByPrefix(directory: string, prefix: string): string | undefined {
   // 验证输入目录
   if (!directory || !fs.existsSync(directory) || !fs.statSync(directory).isDirectory()) {
     console.warn(`目录不存在或无效: ${directory}`);
-    return null;
+    return;
   }
 
   // 构建匹配正则表达式：prefix + 任意哈希字符 + .json
@@ -207,11 +207,11 @@ export function findJsonFileByPrefix(directory: string, prefix: string): string 
       return path.resolve(directory, match);
     } else {
       console.info(`未找到匹配 ${prefix}+哈希.json 格式的文件`);
-      return null;
+      return;
     }
   } catch (error) {
     console.error(`读取目录失败: ${directory}`, error);
-    return null;
+    return;
   }
 }
 
@@ -229,11 +229,11 @@ function escapeRegExp(text: string): string {
  * @param jsonPath JSON文件绝对路径
  * @returns 处理后的对象，失败返回null
  */
-export function parseCodeModelJson(replyDirectory: string): CMakeCodeModelResult | null {
+function parseCodeModelJson(replyDirectory: string): CMakeCodeModelResult | undefined {
   const jsonPath = findJsonFileByPrefix(replyDirectory, 'codemodel-v2-')
   if (!jsonPath || !fs.existsSync(jsonPath) || !fs.statSync(jsonPath).isFile()) {
     console.error(`文件不存在或无效: ${jsonPath}`);
-    return null;
+    return;
   }
 
   try {
@@ -242,7 +242,7 @@ export function parseCodeModelJson(replyDirectory: string): CMakeCodeModelResult
 
     if (!Array.isArray(data.configurations) || data.configurations.length === 0) {
       console.error('configurations字段不存在或为空数组');
-      return null;
+      return;
     }
 
     // 处理每个configuration
@@ -291,16 +291,18 @@ export function parseCodeModelJson(replyDirectory: string): CMakeCodeModelResult
     } as CMakeCodeModelResult;
   } catch (error: any) {
     console.error(`JSON解析失败: ${error.message}`);
-    return null;
+    return;
   }
 }
 
 /**
- * 解析目标JSON文件（sources与sourceGroups同级）
- * @param jsonPath JSON文件绝对路径
- * @returns 处理后的对象，解析失败返回null
+ * 解析target-xxx-<buildType>文件
+ * @param jsonPath json文件绝对路径
+ * @param rootSourceDir 根部源文件目录
+ * @param rootBuildDir 根部构建目录
+ * @returns 解析结果(包括target包含的文件)，target所在子/根目录，是否为根节点的标志位
  */
-export function parseTargetJson(jsonPath: string, rootSourceDir: string, rootBuildDir: string): [TargetJsonResult, string, boolean] | null {
+function parseTargetJson(jsonPath: string, rootSourceDir: string, rootBuildDir: string): [TargetJsonResult, string, boolean] | undefined {
   /**
    * 示例：
    * rootSourceDir: D:/proj
@@ -312,7 +314,7 @@ export function parseTargetJson(jsonPath: string, rootSourceDir: string, rootBui
    */
   if (!fs.existsSync(jsonPath) || !fs.statSync(jsonPath).isFile()) {
     console.error(`文件无效: ${jsonPath}`);
-    return null;
+    return;
   }
 
   try {
@@ -330,19 +332,6 @@ export function parseTargetJson(jsonPath: string, rootSourceDir: string, rootBui
       paths: { build: currentBuildDir, source: currentSourceDir },
       sourceGroups: []
     };
-
-    // const sources: SourceItem[] = data.sources || [];
-
-    // const resourcesGroup: SourceGroup = (data.sourceGroups || [])
-    //   .filter((g: SourceGroup) => g.name === 'Resources' || g.name === '')
-    //   .reduce((merged: SourceGroup, group: SourceGroup) => {
-    //     merged.name = 'Resources';
-    //     merged.sourceIndexes.push(...group.sourceIndexes);
-    //     return merged;
-    //   }, { name: 'Resources', sourceIndexes: [] } as SourceGroup);
-    // const otherGroups = (data.sourceGroups || [])
-    //   .filter((g: SourceGroup) => g.name === 'Header Files' || g.name === 'Source Files');
-    // const mergedGroups = [...otherGroups, resourcesGroup].filter(g => g.sourceIndexes.length > 0);
 
     const sources: SourceItem[] = data.sources || [];
 
@@ -365,7 +354,7 @@ export function parseTargetJson(jsonPath: string, rootSourceDir: string, rootBui
     const mergedGroups = groupOrder
       .map(name => {
         if (name === 'Resources') return resourcesGroup;
-        return otherGroups.find((g: SourceGroup) => g.name === name) || null;
+        return otherGroups.find((g: SourceGroup) => g.name === name) || undefined;
       })
       .filter((g: SourceGroup) => g !== null && g.sourceIndexes.length > 0);
 
@@ -385,7 +374,6 @@ export function parseTargetJson(jsonPath: string, rootSourceDir: string, rootBui
           )
         )
         .map((source) => {
-          // 直接返回规范化后的绝对路径，不再移除前缀
           return getNormalizedAbsPath(rootSourceDir, source.path);
         });
 
@@ -397,37 +385,47 @@ export function parseTargetJson(jsonPath: string, rootSourceDir: string, rootBui
     return [result, currentSourceDir, isRoot];
   } catch (error: any) {
     console.error(`解析失败: ${error.message}`);
-    return null;
+    return;
   }
 }
 
-export function createTreeItemForResourcesGroup(group: SourceGroup, currentSourceDir: string): [FileTreeItem, string[]] | null {
+/**
+ * 为Resources分组创建树节点
+ * @param group Resources分组
+ * @param currentSourceDir 当前所在源文件目录
+ * @returns Resources目录节点，Resources分组中去除掉放入qrc内部的剩余文件的绝对路径数组
+ */
+function createTreeItemForResourcesGroup(group: SourceGroup, currentSourceDir: string): [FileTreeItem, string[]] | undefined {
   //滤除空的分组
   if (!group.sources || group.sources.length === 0 || group.name !== 'Resources') {
-    return null
+    return
   }
-  const groupItem = new FileTreeItem(
+  const groupItem = createFileTreeItem(
     group.name,
     vscode.TreeItemCollapsibleState.Collapsed,
     '',
     currentSourceDir
   )
+  if (!groupItem) return
   const qrcFiles: string[] = findFilesByExtension('.qrc', group.sources)
-  if (qrcFiles.length === 0) return null
+  if (qrcFiles.length === 0) return
   //用于后续从sources数组中排除掉被放到resources分组中的文件
   const resourceFiles: string[] = []
   qrcFiles.forEach((qrcFile, index) => {
     const qrcContent = fs.readFileSync(qrcFile, 'utf-8');
     const parsedQrcContent = parseQrcContent(qrcContent);
-    const qrcFolderItem = new FileTreeItem(getBaseName(qrcFile, true), vscode.TreeItemCollapsibleState.Collapsed, qrcFile);
+    const qrcFolderItem = createFileTreeItem(getBaseName(qrcFile, true), vscode.TreeItemCollapsibleState.Collapsed, qrcFile);
+    if (!qrcFolderItem) return
     resourceFiles.push(qrcFile)
     parsedQrcContent.forEach(({ prefix, files }) => {
-      const prefixFolderItem = new FileTreeItem(prefix, vscode.TreeItemCollapsibleState.Collapsed, '', currentSourceDir);
+      const prefixFolderItem = createFileTreeItem(prefix, vscode.TreeItemCollapsibleState.Collapsed, '', currentSourceDir);
+      if (!prefixFolderItem) return
       files.forEach(file => {
         const fileAbsPath = getNormalizedAbsPath(currentSourceDir, file.name);
         resourceFiles.push(fileAbsPath);
         //alias和name后边再处理
-        const fileItem = new FileTreeItem(file.name, vscode.TreeItemCollapsibleState.None, fileAbsPath);
+        const fileItem = createFileTreeItem(file.name, vscode.TreeItemCollapsibleState.None, fileAbsPath);
+        if (!fileItem) return
         prefixFolderItem.children.push(fileItem);
       });
       qrcFolderItem.children.push(prefixFolderItem);
@@ -439,41 +437,62 @@ export function createTreeItemForResourcesGroup(group: SourceGroup, currentSourc
   return [groupItem, otherFiles]
 }
 
-export function createTreeItemForCppGroup(group: SourceGroup, currentSourceDir: string): FileTreeItem | null {
+/**
+ * 为Header Files和Source Files创建树节点
+ * @param group Header Files/Source Files分组
+ * @param currentSourceDir 当前所在源文件目录
+ * @returns Header Files/Source Files目录节点
+ */
+function createTreeItemForCppGroup(group: SourceGroup, currentSourceDir: string): FileTreeItem | undefined {
   // Header/Source Files
   if (!group.sources || group.sources.length === 0 ||
     (group.name !== 'Header Files' && group.name !== 'Source Files')) {
-    return null;
+    return;
   }
   return createTreeItemRecursively(group.sources, currentSourceDir, group.name);
 }
 
-export function createTreeItemForOtherFiles(otherFiles: string[], currentSourceDir: string): FileTreeItem | null {
+/**
+ * 为其他文件创建树节点
+ * @param otherFiles 其他文件绝对路径数组
+ * @param currentSourceDir 当前所在源文件目录
+ * @returns 其他文件树节点
+ */
+function createTreeItemForOtherFiles(otherFiles: string[], currentSourceDir: string): FileTreeItem | undefined {
   //对三个分组都没包含进去的也就是Resources中的剩余文件进行处理
   if (otherFiles.length === 0) {
-    return null
+    return
   }
   return createTreeItemRecursively(otherFiles, currentSourceDir, '')
 }
 
-export function createTreeItemForTargetJson(jsonPath: string, rootSourceDir: string, rootBuildDir: string): [FileTreeItem, boolean] | null {
+/**
+ * 创建target-json的树节点
+ * @param jsonPath json文件绝对路径
+ * @param rootSourceDir 根部源文件目录
+ * @param rootBuildDir 根部构建目录
+ * @returns 当前target对应的子/根目录节点，是否为根目录的标志位，如果是根目录就在使用时把根节点的children提取出来
+ */
+function createTreeItemForTargetJson(jsonPath: string, rootSourceDir: string, rootBuildDir: string): [FileTreeItem, boolean] | undefined {
   const parseResult = parseTargetJson(jsonPath, rootSourceDir, rootBuildDir)
-  if (!parseResult) return null
+  if (!parseResult) return
   const [targetJsonResult, currentSourceDir, isRoot] = parseResult
   const sourceGroups = targetJsonResult.sourceGroups
   console.log(sourceGroups)
   const dirName = getBaseName(targetJsonResult.paths.source)
   //子目录，比如src
-  const dirItem: FileTreeItem = new FileTreeItem(
+  const dirItem = createFileTreeItem(
     dirName,
     vscode.TreeItemCollapsibleState.Collapsed,
     currentSourceDir
   )
-  const cmakeListsItem: FileTreeItem = new FileTreeItem(
+  if (!dirItem) return
+  const cmakeListsItem = createFileTreeItem(
     'CMakeLists.txt',
     vscode.TreeItemCollapsibleState.None,
     path.resolve(currentSourceDir, 'CMakeLists.txt')
   )
+  if (!cmakeListsItem) return
   dirItem.children.push(cmakeListsItem)
 
   //对于resources处理，有多种情况：1.没有resources这个分组，说明没有otherfiles 2.有这个分组，但是createResult=空 3.createResult不为空
@@ -491,15 +510,15 @@ export function createTreeItemForTargetJson(jsonPath: string, rootSourceDir: str
         const [resItem, otherFiles] = createResult
         dirItem.children.push(resItem)
         const otherFilesItem = createTreeItemForOtherFiles(otherFiles, currentSourceDir)
-        if (!otherFilesItem) return null
+        if (!otherFilesItem) return
         console.log('otherfiles', otherFilesItem)
         dirItem.children.push(...otherFilesItem.children)
       } else {
         //2.createResult=空，直接使用resources分组内容
         //这里的逻辑只用于测试
-        if (!group.sources) return null
+        if (!group.sources) return
         const otherFilesItem = createTreeItemForOtherFiles(group.sources, currentSourceDir)
-        if (!otherFilesItem) return null
+        if (!otherFilesItem) return
         console.log('otherfiles', otherFilesItem)
         dirItem.children.push(...otherFilesItem.children)
       }
@@ -509,8 +528,13 @@ export function createTreeItemForTargetJson(jsonPath: string, rootSourceDir: str
 }
 
 
-
-export function getNormalizedAbsPath(currentDir: string, inputPath: string): string {
+/**
+ * 格式化输入的任何路径(绝对，相对，文件名)为绝对路径
+ * @param currentDir 当前目录
+ * @param inputPath 绝对路径/相对路径/文件名
+ * @returns 标准的绝对路径
+ */
+function getNormalizedAbsPath(currentDir: string, inputPath: string): string {
   // 处理绝对路径
   if (path.isAbsolute(inputPath)) {
     return path.normalize(inputPath);
@@ -521,7 +545,12 @@ export function getNormalizedAbsPath(currentDir: string, inputPath: string): str
   return path.normalize(absolutePath);
 }
 
-export function isPathInDirectory(targetPath: string, directory: string): boolean {
+/**
+ * @param targetPath 用于判断的绝对路径
+ * @param directory 当前目录
+ * @returns targetPath是否在directory这个目录下
+ */
+function isPathInDirectory(targetPath: string, directory: string): boolean {
   const relativePath = path.relative(directory, targetPath);
   return !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
 }
@@ -568,17 +597,25 @@ function isSamePath(
     : resolvedPath1.toLowerCase() === resolvedPath2.toLowerCase();
 }
 
-export function createTreeItemRecursively(filePaths: string[], currentSourceDir: string, rootName: string): FileTreeItem {
+/**
+ * 递归解析文件绝对路径数组，构建文件结构树
+ * @param filePaths 文件绝对路径数组
+ * @param currentSourceDir 源文件目录
+ * @param rootLabel 根节点的label
+ * @returns 根节点，如果需要其内部节点，使用其children属性
+ */
+function createTreeItemRecursively(filePaths: string[], currentSourceDir: string, rootLabel: string): FileTreeItem | undefined {
   const normalizedBaseDir = path.normalize(currentSourceDir);
   const dirMap = new Map<string, FileTreeItem>();
 
   // 创建根目录节点
-  const rootDirItem = new FileTreeItem(
-    rootName,
+  const rootDirItem = createFileTreeItem(
+    rootLabel,
     vscode.TreeItemCollapsibleState.Collapsed,
     '',
     normalizedBaseDir
   );
+  if (!rootDirItem) return
   dirMap.set(normalizedBaseDir, rootDirItem);
 
   // 处理文件路径...
@@ -598,11 +635,12 @@ export function createTreeItemRecursively(filePaths: string[], currentSourceDir:
       currentDir = path.join(currentDir, dirName);
 
       if (!dirMap.has(currentDir)) {
-        const dirItem = new FileTreeItem(
+        const dirItem = createFileTreeItem(
           dirName,
           vscode.TreeItemCollapsibleState.Collapsed,
           currentDir
         );
+        if (!dirItem) return
         dirMap.set(currentDir, dirItem);
         parentItem.children.push(dirItem); // 添加到父节点的 children
       }
@@ -612,11 +650,12 @@ export function createTreeItemRecursively(filePaths: string[], currentSourceDir:
 
     // 添加文件到父目录
     const fileName = parts[parts.length - 1];
-    const fileItem = new FileTreeItem(
+    const fileItem = createFileTreeItem(
       fileName,
       vscode.TreeItemCollapsibleState.None,
       filePath
     );
+    if (!fileItem) return
     parentItem.children.push(fileItem);
   }
 
@@ -644,7 +683,7 @@ export function createTreeItemRecursively(filePaths: string[], currentSourceDir:
  * @param includeExt 是否包含扩展名（仅对文件有效）
  * @returns 最后一级名称（目录名或文件名）
  */
-export function getBaseName(filePath: string, includeExt = true): string {
+function getBaseName(filePath: string, includeExt = true): string {
   if (!filePath) return '';
 
   // 规范化路径并移除末尾的路径分隔符
@@ -672,4 +711,12 @@ export function getBaseName(filePath: string, includeExt = true): string {
     const baseName = path.basename(normalizedPath);
     return includeExt ? baseName : baseName.replace(path.extname(baseName), '');
   }
+}
+
+export {
+  getBaseName,
+  getNormalizedAbsPath,
+  getCmakeApiReplyDirectory,
+  parseCodeModelJson,
+  createTreeItemForTargetJson
 }

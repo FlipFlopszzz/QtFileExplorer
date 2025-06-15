@@ -2,9 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { getBaseName } from '../cmake/parser';
-/**
- * 自定义树项类，继承自 vscode.TreeItem
- */
+
 export class FileTreeItem extends vscode.TreeItem {
   public children: FileTreeItem[] = [];
   public menu: any[] = []
@@ -29,7 +27,11 @@ export class FileTreeItem extends vscode.TreeItem {
     }
 
     if (filePath) {
-      this.resourceUri = vscode.Uri.file(filePath)
+      if (!fs.existsSync(filePath)) {
+        console.log(filePath)
+        return;
+      }
+      this.resourceUri = vscode.Uri.file(filePath);
       try {
         const stats = fs.statSync(filePath);
         if (stats.isFile() && this.contextValue !== 'qrcFile') {
@@ -37,12 +39,15 @@ export class FileTreeItem extends vscode.TreeItem {
             command: 'vscode.open',
             title: 'Open File',
             arguments: [this.resourceUri]
-          }
+          };
         }
-      } catch (err) {
-        const error = err as NodeJS.ErrnoException;
-        vscode.window.showErrorMessage(`Error checking file type: ${error.message}`);
+      } catch {
       }
     }
   }
+}
+
+export function createFileTreeItem(label: string, collapsibleState: vscode.TreeItemCollapsibleState, filePath?: string, dir?: string): FileTreeItem | undefined {
+  if (filePath && !fs.existsSync(filePath)) return
+  return new FileTreeItem(label, collapsibleState, filePath, dir)
 }

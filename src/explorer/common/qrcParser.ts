@@ -1,5 +1,4 @@
 import { XMLParser } from 'fast-xml-parser';
-import { FileTreeItem } from './fileTreeItem';
 
 export function parseQrcContent(qrcContent: string): { prefix: string; files: { name: string; alias: string }[] }[] {
   const parserOptions = {
