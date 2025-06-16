@@ -478,7 +478,6 @@ function createTreeItemForTargetJson(jsonPath: string, rootSourceDir: string, ro
   if (!parseResult) return
   const [targetJsonResult, currentSourceDir, isRoot] = parseResult
   const sourceGroups = targetJsonResult.sourceGroups
-  console.log(sourceGroups)
   const dirName = getBaseName(targetJsonResult.paths.source)
   //子目录，比如src
   const dirItem = createFileTreeItem(
@@ -503,7 +502,6 @@ function createTreeItemForTargetJson(jsonPath: string, rootSourceDir: string, ro
       if (createResult) dirItem.children.push(createResult)
     } else if (group.name === 'Resources') {
       //这里逻辑后边还得优化
-      // console.log(currentSourceDir, group.sources)
       createResult = createTreeItemForResourcesGroup(group, currentSourceDir)
       if (createResult) {
         //3.createResult不为空，使用它提供的otherfiles
@@ -511,7 +509,6 @@ function createTreeItemForTargetJson(jsonPath: string, rootSourceDir: string, ro
         dirItem.children.push(resItem)
         const otherFilesItem = createTreeItemForOtherFiles(otherFiles, currentSourceDir)
         if (!otherFilesItem) return
-        console.log('otherfiles', otherFilesItem)
         dirItem.children.push(...otherFilesItem.children)
       } else {
         //2.createResult=空，直接使用resources分组内容
@@ -519,7 +516,6 @@ function createTreeItemForTargetJson(jsonPath: string, rootSourceDir: string, ro
         if (!group.sources) return
         const otherFilesItem = createTreeItemForOtherFiles(group.sources, currentSourceDir)
         if (!otherFilesItem) return
-        console.log('otherfiles', otherFilesItem)
         dirItem.children.push(...otherFilesItem.children)
       }
     }
@@ -713,10 +709,28 @@ function getBaseName(filePath: string, includeExt = true): string {
   }
 }
 
+/**
+ * 处理windows下的盘符大小写问题,全部大写
+ * @param filePath 
+ * @returns 格式化盘符后的路径
+ */
+function normalizeDriveLetter(filePath: string): string {
+  let norm = path.normalize(filePath);
+  // 只在 Windows 下处理盘符
+  if (process.platform === 'win32') {
+    // 检查是不是绝对路径，并且以盘符开头
+    if (/^[a-zA-Z]:/.test(norm)) {
+      norm = norm[0].toUpperCase() + norm.slice(1);
+    }
+  }
+  return norm;
+}
+
 export {
   getBaseName,
   getNormalizedAbsPath,
   getCmakeApiReplyDirectory,
   parseCodeModelJson,
-  createTreeItemForTargetJson
+  createTreeItemForTargetJson,
+  normalizeDriveLetter
 }
