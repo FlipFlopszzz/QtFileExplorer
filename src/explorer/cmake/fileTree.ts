@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { getCmakeApiReplyDirectory, parseCodeModelJson, createTreeItemForTargetJson, getBaseName } from './parser';
+import { getCmakeApiReplyDirectory, parseCodeModelJson, createTreeItemForTargetJson, getBaseName, normalizeDriveLetter } from './parser';
 import { FileTreeItem, createFileTreeItem } from '../common/fileTreeItem';
 import { registerTreeMenuCommands } from '../common/treeMenu';
 import { treeView } from '../../extension';
@@ -13,6 +13,7 @@ export class CMakeFileTreeDataProvider implements vscode.TreeDataProvider<FileTr
 
   private rootSourceDir: string = ''
   private rootBuildDir: string = ''
+  private rootItemsMap = new Map<string, FileTreeItem>() //更新rootItems时,更新这个map,便于查找
 
 
   constructor() {
@@ -37,7 +38,6 @@ export class CMakeFileTreeDataProvider implements vscode.TreeDataProvider<FileTr
     this.rootBuildDir = codemodelResult.paths.build
     const buildType = config.name
     const targets = config.targets;
-    // console.log(targets)
     const rootItems: FileTreeItem[] = []
     let currentIsRoot: boolean = false
 
@@ -67,6 +67,8 @@ export class CMakeFileTreeDataProvider implements vscode.TreeDataProvider<FileTr
       rootCmakeListsItem && rootItems.unshift(rootCmakeListsItem)
     }
     treeView.title = getBaseName(this.rootSourceDir) + '<' + buildType + '>'
+    this.setParent(rootItems)
+    this.createRootItemsMap(rootItems);
     return rootItems
   }
 
@@ -78,6 +80,10 @@ export class CMakeFileTreeDataProvider implements vscode.TreeDataProvider<FileTr
       // 返回子项（如果有）
       return element.children || [];
     }
+  }
+
+  getParent(element: FileTreeItem): FileTreeItem | undefined {
+    return element.parent;
   }
 
   // 设置文件系统观察器
@@ -104,4 +110,37 @@ export class CMakeFileTreeDataProvider implements vscode.TreeDataProvider<FileTr
       this.watcher.dispose();
     }
   }
+
+  private setParent(items: FileTreeItem[], parent?: FileTreeItem) {
+    for (const item of items) {
+      item.parent = parent;
+      if (item.children) this.setParent(item.children, item);
+    }
+  }
+
+  private createRootItemsMap(items: FileTreeItem[]) {
+    for (const item of items) {
+      if (item.children) this.createRootItemsMap(item.children);
+      if (!item.filePath) continue
+      this.rootItemsMap.set(normalizeDriveLetter(item.filePath), item);
+    }
+  }
+
+  findElementByPath(filePath: string) {
+    // console.log(this.rootItemsMap)
+    const fmt_path = normalizeDriveLetter(path.normalize(filePath))
+    // console.log('fmt', fmt_path)
+    return this.rootItemsMap.get(fmt_path)
+  }
+
+  // countTreeItems(items: FileTreeItem[]): number {
+  //   let count = 0;
+  //   for (const item of items) {
+  //     count += 1; // 统计当前节点
+  //     if (item.children && item.children.length > 0) {
+  //       count += this.countTreeItems(item.children); // 递归统计子节点
+  //     }
+  //   }
+  //   return count;
+  // }
 }

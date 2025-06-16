@@ -5,6 +5,7 @@ import { getBaseName } from '../cmake/parser';
 
 export class FileTreeItem extends vscode.TreeItem {
   public children: FileTreeItem[] = [];
+  public parent?: FileTreeItem
   public menu: any[] = []
   public iconPath = vscode.ThemeIcon.File;
 
@@ -28,7 +29,6 @@ export class FileTreeItem extends vscode.TreeItem {
 
     if (filePath) {
       if (!fs.existsSync(filePath)) {
-        console.log(filePath)
         return;
       }
       this.resourceUri = vscode.Uri.file(filePath);
