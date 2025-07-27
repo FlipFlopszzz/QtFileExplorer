@@ -3,12 +3,17 @@
   "displayName": "Qt File Explorer",
   "description": "A simple file explorer extension for Qt project",
   "version": "0.0.1",
-  "publisher": "flipFlops",
+  "publisher": "FlipFlopszzz",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FlipFlopszzz/QtFileExplorer"
+  },
   "engines": {
     "vscode": "^1.95.0"
   },
   "categories": [
-    "Other"
+    "Snippets",
+    "Visualization"
   ],
   "keywords": [
     "Qt",
