@@ -38,7 +38,7 @@
           "qtFileExplorer.cmakeBuildDirectory": {
             "type": "string",
             "default": "cmake.buildDirectory",
-            "description": "%cmake.buildDirectory.description%"
+            "description": "%qtfileexplorer.cmake.buildDirectory.description%"
           }
         }
       }

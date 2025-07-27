@@ -3,5 +3,6 @@
   "qtfileexplorer.newFile.title":"新建文件...",
   "qtfileexplorer.revealFileInOS.title":"在文件资源管理器中显示",
   "qtfileexplorer.renameFile.title":"重命名...",
-  "qtfileexplorer.openQrcFile.title":"打开.qrc文件"
+  "qtfileexplorer.openQrcFile.title":"打开.qrc文件",
+  "qtfileexplorer.cmake.buildDirectory.description":"選擇 CMake 建置目錄。建置結果將用於建構檔案樹檢視。預設會直接使用 CMake Tools 延伸模組的設定 cmake.buildDirectory。"
 }

@@ -3,5 +3,6 @@
   "qtfileexplorer.newFile.title":"New File...",
   "qtfileexplorer.revealFileInOS.title":"Reveal File in OS",
   "qtfileexplorer.renameFile.title":"Rename File...",
-  "qtfileexplorer.openQrcFile.title":"Open .qrc File"
+  "qtfileexplorer.openQrcFile.title":"Open .qrc File",
+  "qtfileexplorer.cmake.buildDirectory.description":"Select the CMake build directory. The build results will be used to construct the file tree view. By default, the setting cmake.buildDirectory from the CMake Tools extension is used directly."
 }
